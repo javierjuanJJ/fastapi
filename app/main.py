@@ -13,8 +13,6 @@ app = FastAPI()
 app.include_router(users.router)
 app.include_router(post.router)
 
-app = FastAPI()
-
 while True:
     try:
         connection = psycopg2.connect(
