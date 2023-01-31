@@ -84,7 +84,7 @@ def createPost(newPost: Post, do: Session = Depends(get_db)):
 
 @app.get("/posts/{id}")
 def get_posts(id: int, do: Session = Depends(get_db)):
-    post = do.query(models.Post).filter(models.Post.id == id).first()
+    post = do.query(models.Post).filter_by(models.Post.id == id).first()
 
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id : {id} not found")
@@ -100,7 +100,7 @@ def find_index_id(id: int):
 @app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_posts(id: int, do: Session = Depends(get_db)):
 
-    deleted_post =do.query(models.Post).filter(models.Post.id == id)
+    deleted_post =do.query(models.Post).filter_by(models.Post.id == id)
 
     if deleted_post.first() is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id : {id} does not exist")
