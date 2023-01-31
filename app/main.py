@@ -1,6 +1,6 @@
 import time
 from random import randrange
-from typing import Optional
+from typing import Optional, List
 
 import psycopg2
 from fastapi import FastAPI, HTTPException, Depends
@@ -13,16 +13,14 @@ from psycopg2.extras import RealDictCursor
 
 from . import models
 from .database import engine, SessionLocal, get_db
+from .models import Post
+from .schemas import PostCreate, UserCreate, UserOut
 
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-class Post(BaseModel):
-    title: str
-    content: str
-    published: True
-    # rating: Optional[int] = None
+
 
 
 @app.get("/sqlalchemy")
@@ -65,13 +63,13 @@ async def say_hello(name: str):
 
 
 @app.get("/posts")
-def get_posts(do: Session = Depends(get_db)):
+def get_posts(do: Session = Depends(get_db), response_model=List[Post]):
     posts = do.query(models.Post).all()
-    return {"data": posts}
+    return posts
 
 
-@app.post("/createPost", status_code=status.HTTP_201_CREATED)
-def createPost(newPost: Post, do: Session = Depends(get_db)):
+@app.post("/createPost", status_code=status.HTTP_201_CREATED, response_model=List[Post])
+def createPost(newPost: PostCreate, do: Session = Depends(get_db)):
     # postNew = models.Post(title = newPost.title, content = newPost.content,published = newPost.published)
     postNew = models.Post(**newPost.dict())
 
@@ -83,12 +81,12 @@ def createPost(newPost: Post, do: Session = Depends(get_db)):
 
 
 @app.get("/posts/{id}")
-def get_posts(id: int, do: Session = Depends(get_db)):
+def get_posts(id: int, response_model=List[Post], do: Session = Depends(get_db)):
     post = do.query(models.Post).filter_by(models.Post.id == id).first()
 
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id : {id} not found")
-    return {"post_detail": post}
+    return post
 
 
 def find_index_id(id: int):
@@ -112,7 +110,7 @@ def delete_posts(id: int, do: Session = Depends(get_db)):
 
 
 @app.put("/posts/{id}")
-def update_posts(id: int, do: Session = Depends(get_db)):
+def update_posts(id: int, response_model=List[Post], do: Session = Depends(get_db)):
     update_post = do.query(models.Post).filter_by(models.Post.id == id)
     post = update_post.first()
     if post is None:
@@ -120,7 +118,7 @@ def update_posts(id: int, do: Session = Depends(get_db)):
 
     update_post.update(post.dict(), synchronize_session=False)
     do.commit()
-    return {"data": update_post.first()}
+    return update_post.first()
 
 
 def findPost(id):
@@ -132,3 +130,13 @@ def findPost(id):
 @app.get("/posts/latest")
 def get_latest_post():
     return {"post_detail": findPost(len(myPosts) - 1)}
+
+
+@app.post("/createuser", status_code=status.HTTP_201_CREATED, response_model=List[UserOut])
+def create_user(user: UserCreate, do: Session = Depends(get_db)):
+    new_user = models.Post(**user.dict())
+
+    do.add(new_user)
+    do.commit()
+    do.refresh(new_user)
+    return new_user
