@@ -3,14 +3,20 @@ from random import randrange
 from typing import Optional
 
 import psycopg2
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 from starlette import status
 from websockets.http11 import Response
 from psycopg2 import *
 from psycopg2.extras import RealDictCursor
-app = FastAPI()
 
+from . import models
+from .database import engine, SessionLocal, get_db
+
+models.Base.metadata.create_all(bind=engine)
+
+app = FastAPI()
 
 class Post(BaseModel):
     title: str
@@ -18,6 +24,13 @@ class Post(BaseModel):
     published: True
     # rating: Optional[int] = None
 
+
+@app.get("/sqlalchemy")
+def test_posts(do: Session = Depends(get_db)):
+
+    posts = do.query(models.Post).all()
+
+    return {"status": posts}
 
 while True:
     try:
