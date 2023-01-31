@@ -118,7 +118,7 @@ def update_posts(id: int, do: Session = Depends(get_db)):
     if post is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id : {id} does not exist")
 
-    update_post.update(post.__dict__, synchronize_session=False)
+    update_post.update(post.dict(), synchronize_session=False)
     do.commit()
     return {"data": update_post.first()}
 
