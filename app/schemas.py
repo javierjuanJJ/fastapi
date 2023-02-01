@@ -16,7 +16,12 @@ class PostCreate(PostBase):
     pass
 
 
+class PostOut(BaseModel):
+    Post: Post
+    votes: int
 
+    class Config:
+        orm_mode = True
 
 
 class UserBase(BaseModel):
