@@ -1,5 +1,5 @@
 import time
-from typing import List
+from typing import List, Optional
 
 import psycopg2
 from fastapi import HTTPException, APIRouter
@@ -9,14 +9,15 @@ from psycopg2.extras import RealDictCursor
 from sqlalchemy.orm import Session
 from starlette import status
 
-from app import models
+from app import models, oauth2
 from app.database import get_db
 from app.main import app
-from app.models import Post
+from app.models import Post, User
 from app.schemas import PostCreate
 
 router = APIRouter(
-    prefix="/posts"
+    prefix="/posts",
+    tags=['Posts']
 )
 @router.get("/sqlalchemy")
 def test_posts(do: Session = Depends(get_db)):
@@ -43,16 +44,16 @@ async def say_hello(name: str):
     return {"message": f"Hello {name}"}
 
 
-@router.get("/")
-def get_posts(do: Session = Depends(get_db), response_model=List[Post]):
-    posts = do.query(models.Post).all()
+@router.get("/", response_model=List[Post])
+def get_posts(do: Session = Depends(get_db), limit: int = 10, skip: int = 0, search:Optional[str] = ""):
+    posts = do.query(models.Post).filter(models.Post.title.__contains__(search)).limit(limit).offset(skip).all()
     return posts
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=List[Post])
-def createPost(newPost: PostCreate,currentUser: int, do: Session = Depends(get_db)):
+def createPost(newPost: PostCreate, currentUser: User = Depends(oauth2.get_current_user), do: Session = Depends(get_db)):
     # postNew = models.Post(title = newPost.title, content = newPost.content,published = newPost.published)
-    postNew = models.Post(**newPost.dict())
+    postNew = models.Post(owner_id = currentUser.id,**newPost.dict())
 
     do.add(postNew)
     do.commit()
@@ -61,12 +62,17 @@ def createPost(newPost: PostCreate,currentUser: int, do: Session = Depends(get_d
     return {"data": postNew}
 
 
-@router.get("/{id}", response_model=List[Post])
-def get_posts(id: int, currentUser: int, do: Session = Depends(get_db)):
-    post = do.query(models.Post).filter_by(models.Post.id == id).first()
+@router.get("/{id}", response_model=Post)
+def get_posts(id: int, currentUser: int = Depends(oauth2.get_current_user) ,do: Session = Depends(get_db)):
+    post = do.query(models.Post).filter(models.Post.owner_id == currentUser.id).first()
 
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id : {id} not found")
+
+    if post.owner_id != currentUser.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to perform requested action")
+
+
     return post
 
 
@@ -77,12 +83,15 @@ def find_index_id(id: int):
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_posts(id: int, currentUser: int, do: Session = Depends(get_db)):
+def delete_posts(id: int, currentUser: int = Depends(oauth2.get_current_user), do: Session = Depends(get_db)):
 
-    deleted_post =do.query(models.Post).filter_by(models.Post.id == id)
+    deleted_post = do.query(models.Post).filter(models.Post.id == id)
 
     if deleted_post.first() is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id : {id} does not exist")
+
+    if deleted_post.owner_id != currentUser.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to perform requested action")
 
     deleted_post.delete(synchronize_session=False)
     do.commit()
@@ -94,8 +103,13 @@ def delete_posts(id: int, currentUser: int, do: Session = Depends(get_db)):
 def update_posts(id: int,currentUser: int,updatedPost: PostCreate, do: Session = Depends(get_db)):
     update_post = do.query(models.Post).filter_by(models.Post.id == id)
     post = update_post.first()
+
     if post is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id : {id} does not exist")
+
+    if post.owner_id != currentUser.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to perform requested action")
+
 
     update_post.update(updatedPost.dict(), synchronize_session=False)
     do.commit()

@@ -14,19 +14,3 @@ app.include_router(users.router)
 app.include_router(post.router)
 app.include_router(auth.router)
 
-while True:
-    try:
-        connection = psycopg2.connect(
-            host='localhost',
-            database='fastapi',
-            user='postgres',
-            password='password123',
-            cursor_factory=RealDictCursor)
-        cursor = connection.cursor()
-        print("Database connection was succesfully")
-        break
-    except Exception as error:
-        print("Connection to database failed")
-        print(f"Error {error} ")
-        time.sleep(2)
-
