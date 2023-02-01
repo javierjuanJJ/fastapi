@@ -50,7 +50,7 @@ def get_posts(do: Session = Depends(get_db), response_model=List[Post]):
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=List[Post])
-def createPost(newPost: PostCreate, do: Session = Depends(get_db)):
+def createPost(newPost: PostCreate,currentUser: int, do: Session = Depends(get_db)):
     # postNew = models.Post(title = newPost.title, content = newPost.content,published = newPost.published)
     postNew = models.Post(**newPost.dict())
 
@@ -62,7 +62,7 @@ def createPost(newPost: PostCreate, do: Session = Depends(get_db)):
 
 
 @router.get("/{id}", response_model=List[Post])
-def get_posts(id: int, do: Session = Depends(get_db)):
+def get_posts(id: int, currentUser: int, do: Session = Depends(get_db)):
     post = do.query(models.Post).filter_by(models.Post.id == id).first()
 
     if not post:
@@ -77,7 +77,7 @@ def find_index_id(id: int):
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_posts(id: int, do: Session = Depends(get_db)):
+def delete_posts(id: int, currentUser: int, do: Session = Depends(get_db)):
 
     deleted_post =do.query(models.Post).filter_by(models.Post.id == id)
 
@@ -91,7 +91,7 @@ def delete_posts(id: int, do: Session = Depends(get_db)):
 
 
 @router.put("/{id}", response_model=List[Post])
-def update_posts(id: int,updatedPost: PostCreate, do: Session = Depends(get_db)):
+def update_posts(id: int,currentUser: int,updatedPost: PostCreate, do: Session = Depends(get_db)):
     update_post = do.query(models.Post).filter_by(models.Post.id == id)
     post = update_post.first()
     if post is None:
